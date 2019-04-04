@@ -7,7 +7,7 @@ def sniff(interface):
 
 
 def process_sniffed_packet(packet):
-    print("a",packet)
+    print("process_sniffed_packet: ", packet)
 
     #print("decoded", packet.decode())
 

